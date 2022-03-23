@@ -1,1 +1,1 @@
-web: gunicorn wsgi:src
+worker: gunicorn wsgi:src
