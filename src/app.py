@@ -4,7 +4,7 @@ import threading
 import os
 from click import File
 from flask import Flask,jsonify,request
-import asyncio
+
 
 from conexiondb import ConexionFirebase
 
@@ -20,6 +20,9 @@ conexion_firebase = ConexionFirebase(
     )
 conexion_firebase.init_firebase()
 
+
+
+
 @app.route("/")
 def raiz():
     return jsonify({
@@ -34,13 +37,14 @@ def user_add():
     password = json_response['password']
     img_base64 = json_response['img']
     mail = json_response['mail']
-
+    print(img_base64)
     img = base64.b64decode(img_base64)
     key_user = cargarImgProfile(img,nombre,password,mail)
     
     return jsonify({
         "status": "ok",
-        "data": key_user
+        "data": key_user['key'],
+        "profile": key_user['profile']
     })
 
 def cargarImgProfile(img_url,nombre,password,mail):
@@ -63,15 +67,16 @@ def get_user():
 
 
 @app.route("/login")
-def login():
+async def login():
     name = request.args['name']
     password = request.args['password']
-    resp = conexion_firebase.login(name,password)
+    resp =  conexion_firebase.login(name,password)
     print(resp['status'])
     if resp['status']:
         return jsonify({
             "status": "ok",
-            "data": resp['data']
+            "data": resp['data'],
+            "profile": resp["profile"]
         })
     else:
         return jsonify({
@@ -82,13 +87,15 @@ def login():
 @app.route("/set-img-profile-user",methods=["POST"])
 def setImageProfileUser():
     response_json = request.get_json(force=True)
-    
+    listImageBase64 = []
     img_string = response_json['img']
     key = response_json['key']
+    for x in img_string:
+        imgFile = base64.b64decode(x)
+        listImageBase64.append(imgFile)
 
-    img = base64.b64decode(img_string)
-    hilo_img = threading.Thread(target=main,kwargs={
-        "img_url": img,
+    hilo_img = threading.Thread(target=cargarImgCloudinary,kwargs={
+        "img_url": listImageBase64,
         "key": key
     })
     # base = base64.decodestring(img['img'])
@@ -98,19 +105,19 @@ def setImageProfileUser():
     })
 
 
-def main(img_url,key):
-    asyncio.run(cargarImgCloudinary(img_url,key))
-
-
-async def cargarImgCloudinary(img_url,key):
+def cargarImgCloudinary(img_url,key):
+    listUrlImage = []
     cloudinary.config(
         cloud_name="dv5fwf13g",
         api_key="296484175841721",
         api_secret="DJIqJ_Wi_Qg4jgSKlNVvZGPnQqU"
     )
-    img_url_s = cloudinary.uploader.upload(img_url)
-    print(img_url_s['secure_url'])
-    await conexion_firebase.add_img(img_url_s['secure_url'],key)
+    for x in img_url:
+        img_url_s = cloudinary.uploader.upload(x)
+        listUrlImage.append(img_url_s['secure_url'])
+    
+    for x in listUrlImage:
+         conexion_firebase.add_img(x,key)
 #https://pub.dev/packages/shared_preferences/install
 #https://medium.flutterdevs.com/using-sharedpreferences-in-flutter-251755f07127
 #https://blog.logrocket.com/using-sharedpreferences-in-flutter-to-store-data-locally/
