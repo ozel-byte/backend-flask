@@ -32,19 +32,17 @@ def raiz():
 @app.route("/add-user",methods=["POST"])
 def user_add():
     json_response = request.get_json(force=True)
-    print(json_response);
     nombre = json_response['name']
     password = json_response['password']
     img_base64 = json_response['img']
     mail = json_response['mail']
-    print(img_base64)
     img = base64.b64decode(img_base64)
     key_user = cargarImgProfile(img,nombre,password,mail)
-    
     return jsonify({
         "status": "ok",
         "data": key_user['key'],
-        "profile": key_user['profile']
+        "profile": key_user['profile'],
+        "name": key_user['name']
     })
 
 def cargarImgProfile(img_url,nombre,password,mail):
@@ -76,7 +74,8 @@ async def login():
         return jsonify({
             "status": "ok",
             "data": resp['data'],
-            "profile": resp["profile"]
+            "profile": resp["profile"],
+            "name": resp['name']
         })
     else:
         return jsonify({
@@ -90,13 +89,15 @@ def setImageProfileUser():
     listImageBase64 = []
     img_string = response_json['img']
     key = response_json['key']
+    desp = response_json['desp']
     for x in img_string:
         imgFile = base64.b64decode(x)
         listImageBase64.append(imgFile)
 
     hilo_img = threading.Thread(target=cargarImgCloudinary,kwargs={
         "img_url": listImageBase64,
-        "key": key
+        "key": key,
+        "desp": desp
     })
     # base = base64.decodestring(img['img'])
     hilo_img.start()
@@ -105,7 +106,7 @@ def setImageProfileUser():
     })
 
 
-def cargarImgCloudinary(img_url,key):
+def cargarImgCloudinary(img_url,key,desp):
     listUrlImage = []
     cloudinary.config(
         cloud_name="dv5fwf13g",
@@ -115,20 +116,21 @@ def cargarImgCloudinary(img_url,key):
     for x in img_url:
         img_url_s = cloudinary.uploader.upload(x)
         listUrlImage.append(img_url_s['secure_url'])
-    
-    for x in listUrlImage:
-         conexion_firebase.add_img(x,key)
+    conexion_firebase.add_img(listUrlImage,key,desp)
 #https://pub.dev/packages/shared_preferences/install
 #https://medium.flutterdevs.com/using-sharedpreferences-in-flutter-251755f07127
 #https://blog.logrocket.com/using-sharedpreferences-in-flutter-to-store-data-locally/
 #https://blog.logrocket.com/building-an-image-picker-in-flutter/
+#https://pub.dev/packages/card_swiper
 
 @app.route("/get-image-user")
 def getImageUserKey():
     key_user = request.args['key']
+    data = conexion_firebase.getImageUserKey(key_user)
+    print(data)
     return jsonify({
         "status": "ok",
-        "arrayPhoto": conexion_firebase.getImageUserKey(key_user)
+        "arrayPhoto": data
     })
 
 if __name__ == "__main__":

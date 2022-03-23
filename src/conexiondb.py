@@ -10,7 +10,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 class ConexionFirebase:
 
-    PASSWORDENCRYP = ""
+    
     def __init__(self,credencial,ruta) -> None:
         self.credencial = credencial
         self.ruta = ruta
@@ -21,7 +21,7 @@ class ConexionFirebase:
 
     
 
-    async def add_user(self,name,password,img,mail):
+    def add_user(self,name,password,img,mail):
         ref = db.reference('User')
         resp = self.login(name,password)
         if (resp["status"] == False):
@@ -32,7 +32,7 @@ class ConexionFirebase:
                     "profile-img": img,
                     "mail": mail
                 })
-            return {"key":nex_box_ref.key,"profile":resp['profile']}
+            return {"key":nex_box_ref.key,"profile":img,"name":name}
         else:
             return "ya"
 
@@ -53,24 +53,29 @@ class ConexionFirebase:
         status = False
         keyUser = ""
         profileImg = ""
+        nameUser = ""
         if ref.get() != None:
             for key, val in snapshot.items():
                 if check_password_hash(val['password'],password):
+                    print("entro passwrod")
                     if val['name'] == name:
+                        print("entro name")
                         status = True
                         keyUser = key
                         profileImg = val['profile-img']
-                    else:
-                        status = False
+                        nameUser = val['name']
+                        break
                 else:
                     status = False
-        return {"status": status, "data": keyUser, "profile": profileImg}
+        print(status)
+        return {"status": status, "data": keyUser, "profile": profileImg,"name":nameUser}
 
-    def add_img(self,img,key):
+    def add_img(self,img,key,desp):
         ref =  db.reference('/Photo')
         ref.push({
             "key": key,
-            "img": img
+            "img": img,
+            "descripcion": desp
         })
 
     def getImageUserKey(self,keyUser):
@@ -82,7 +87,8 @@ class ConexionFirebase:
                 if (val['key'] == keyUser):
                     photoUser.append({
                     "id": key,
-                    "photo": val['img']
+                    "photo": val['img'],
+                    "desp": val['descripcion']
                     })
             return photoUser
         else:
